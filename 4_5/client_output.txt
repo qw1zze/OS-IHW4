@@ -1,0 +1,13 @@
+Philosopher 0 is thinking
+Philosopher 0 is eating
+Philosopher 0 is thinking
+Philosopher 0 is eating
+Philosopher 0 is thinking
+Philosopher 0 is eating
+Philosopher 0 is thinking
+Philosopher 0 is eating
+Philosopher 0 is thinking
+Philosopher 0 is eating
+Philosopher 0 is thinking
+Philosopher 0 is eating
+Ending program
