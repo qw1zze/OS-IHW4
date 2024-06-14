@@ -53,8 +53,7 @@ void handle_clients(int server_socket) {
                 sendto(server_socket, "0", 1, 0, (struct sockaddr *)&client_addr, addr_len);
             }
         } else if (action == 2) {
-            // Action 2: Request for forks status
-            char forks_status[10]; // Assuming 5 forks (0 or 1 for each fork)
+            char forks_status[10];
 
             for (int i = 0; i < 5; ++i) {
                 forks_status[i] = forks[i] + '0';
