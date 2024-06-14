@@ -3,92 +3,91 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <fcntl.h>
 
-const char* forks[5] = {"1", "2", "3", "4", "5"};
+int forks[5];
 
-void handle_philosopher(int client_socket) {
-    int philosopher_id;
-    read(client_socket, &philosopher_id, sizeof(int));
+void handle_clients(int server_socket) {
+    char buffer[1024];
+    struct sockaddr_in client_addr;
+    socklen_t addr_len = sizeof(client_addr);
 
     while (1) {
-        char request[256];
-        read(client_socket, request, sizeof(request));
+        int recv = recvfrom(server_socket, buffer, sizeof(buffer), 0,
+                                  (struct sockaddr *)&client_addr, &addr_len);
+        if (recv < 0) {
+            perror("Recvfrom error");
+            continue;
+        }
 
-        if (strcmp(request, "pickup") == 0) {
-            int left = philosopher_id;
-            int right = (philosopher_id + 1) % 5;
+        int philosopher_id = buffer[0] - '0';
+        int action = buffer[1] - '0';
 
-            sem_t *lfork = sem_open(forks[left], 0);
-            sem_t *rfork = sem_open(forks[right], 0);
+        if (action == 0) {
+            int lfork = philosopher_id;
+            int rfork = (philosopher_id + 1) % 5;
 
-            sem_wait(lfork);
-            sem_wait(rfork);
+            if (forks[lfork] == 0 && forks[rfork] == 0) {
+                forks[lfork] = 1;
+                forks[rfork] = 1;
 
-            printf("fork %d is locked\n", left + 1);
-            printf("fork %d is locked\n", right + 1);
+                printf("fork %d is locked\n", lfork + 1);
+                printf("fork %d is locked\n", rfork + 1);
 
-            sem_close(lfork);
-            sem_close(rfork);
+                sendto(server_socket, "1", 1, 0, (struct sockaddr *)&client_addr, addr_len);
+            } else {
+                sendto(server_socket, "0", 1, 0, (struct sockaddr *)&client_addr, addr_len);
+            }
+        } else if (action == 1) {
+            int lfork = philosopher_id;
+            int rfork = (philosopher_id + 1) % 5;
 
-            char response[] = "eating";
-            write(client_socket, response, sizeof(response));
-        } else if (strcmp(request, "putdown") == 0) {
-            int left = philosopher_id;
-            int right = (philosopher_id + 1) % 5;
+            if (forks[lfork] == 1 && forks[rfork] == 1) {
+                forks[lfork] = 0;
+                forks[rfork] = 0;
 
-            sem_t *lfork = sem_open(forks[left], 0);
-            sem_t *rfork = sem_open(forks[right], 0);
+                printf("fork %d is unlocked\n", lfork + 1);
+                printf("fork %d is unlocked\n", rfork + 1);
 
-            sem_post(lfork);
-            sem_post(rfork);
-
-            printf("fork %d is unlocked\n", left + 1);
-            printf("fork %d is unlocked\n", right + 1);
-
-            sem_close(lfork);
-            sem_close(rfork);
-
-            char response[] = "thinking";
-            write(client_socket, response, sizeof(response));
+                sendto(server_socket, "1", 1, 0, (struct sockaddr *)&client_addr, addr_len);
+            } else {
+                sendto(server_socket, "0", 1, 0, (struct sockaddr *)&client_addr, addr_len);
+            }
         }
     }
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Incorrect args, should be <server_ip> <port>\n");
+    if (argc != 2) {
+        fprintf(stderr, "Incorrect args, should be <port>\n");
         exit(1);
     }
 
-    char *server_ip = argv[1];
-    char *server_port = argv[2];
+    char *server_port = argv[1];
+
+    int server_socket;
+    struct sockaddr_in server_addr;
+
+    if ((server_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("Socket error");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(atoi(server_port));
+
+    if (bind(server_socket, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Bind error");
+        exit(EXIT_FAILURE);
+    }
 
     for (int i = 0; i < 5; ++i) {
-        sem_unlink(forks[i]);
-        sem_t *fork = sem_open(forks[i], O_CREAT, 0644, 1);
-        sem_close(fork);
+        forks[i] = 0;
     }
 
-    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(atoi(server_port));
-    inet_pton(AF_INET, server_ip, &server_addr.sin_addr);
-
-    if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("bind error");
-        exit(1);
-    }
-    listen(server_socket, 5);
-
-    while (1) {
-        int client_socket = accept(server_socket, NULL, NULL);
-        pthread_t thread;
-        pthread_create(&thread, NULL, (void*)handle_philosopher, (void*)(intptr_t)client_socket);
-    }
+    handle_clients(server_socket);
 
     close(server_socket);
     return 0;
