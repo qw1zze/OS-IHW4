@@ -1,0 +1,17 @@
+Forks status: 00000
+Forks status: 11000
+Forks status: 00000
+Forks status: 11110
+Forks status: 11000
+Forks status: 00110
+Forks status: 01100
+Forks status: 01111
+Forks status: 00000
+Forks status: 01111
+Forks status: 00000
+Forks status: 11011
+Forks status: 00011
+Forks status: 11000
+Forks status: 00110
+Forks status: 00011
+Forks status: 11011
